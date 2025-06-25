@@ -34,7 +34,7 @@ jobs:
           get_latest_kernel() {
             git -c 'versionsort.suffix=-' \
             ls-remote --exit-code --refs --sort='version:refname' --tags https://github.com/gregkh/linux.git '*.*' \
-            | cut --delimiter='/' --fields=3 | grep "$1" | tail -n 1
+            | cut --delimiter='/' --fields=3 | grep "^v6.12" | tail -n 1
           }
 
           grep "_current_kernels=(" linux-tkg-config/prepare > current_kernels.txt
