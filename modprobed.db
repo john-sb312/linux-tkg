@@ -361,6 +361,7 @@ nf_conntrack_sip
 nf_conntrack_tftp
 nf_defrag_ipv4
 nf_defrag_ipv6
+nf_log_syslog
 nf_nat
 nf_nat_ftp
 nf_nat_h323
@@ -383,6 +384,7 @@ nft_fib
 nft_fib_inet
 nft_fib_ipv4
 nft_fib_ipv6
+nft_limit
 nft_masq
 nft_nat
 nft_redir
