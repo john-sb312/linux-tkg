@@ -50,6 +50,7 @@ auth_rpcgss
 autofs4
 battery
 bch
+bcma
 binder
 binfmt_misc
 blake2b_generic
@@ -57,6 +58,9 @@ bluetooth
 bnep
 bpf
 bpf_preload
+brcmfmac
+brcmsmac
+brcmutil
 bridge
 br_netfilter
 btbcm
@@ -68,6 +72,7 @@ btrtl
 btusb
 button
 cbc
+cbmem
 ccm
 ccp
 cdc_acm
@@ -92,9 +97,12 @@ cls_cgroup
 cls_u32
 cmac
 cmdlinepart
+cordic
+coreboot_table
 coretemp
 cp210x
 cpufreq_ondemand
+cqhci
 crc16
 crc32c_generic
 crc32c_intel
@@ -161,6 +169,7 @@ ff_memless
 firmware_attributes_class
 fixed_phy
 fjes
+framebuffer_coreboot
 fscache
 ftdi_sio
 fuse
@@ -322,6 +331,8 @@ mei_gsc
 mei_hdcp
 mei_me
 mei_pxp
+memconsole
+memconsole_coreboot
 mii
 minix
 mmc_block
@@ -402,6 +413,7 @@ nls_utf8
 nouveau
 ntfs
 ntfs3
+ntsync
 nvidia_wmi_ec_backlight
 nvme
 nvme_auth
@@ -484,6 +496,9 @@ scsi_common
 scsi_mod
 scsi_transport_fc
 scsi_transport_sas
+sdhci
+sdhci_pci
+sdhci_uhs2
 sd_mod
 selftests
 serial_multi_instantiate
@@ -504,6 +519,7 @@ snd_aloop
 snd_compress
 snd_ctl_led
 snd_hda_codec
+snd_hda_codec_conexant
 snd_hda_codec_generic
 snd_hda_codec_hdmi
 snd_hda_codec_realtek
@@ -595,6 +611,7 @@ tg3
 thermal
 think_lmi
 thinkpad_acpi
+thinkpad_ec
 thunderbolt
 tiny_power_button
 tls
