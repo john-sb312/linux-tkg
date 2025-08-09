@@ -48,6 +48,7 @@ atkbd
 atl1c
 auth_rpcgss
 autofs4
+b43
 battery
 bch
 bcma
@@ -427,6 +428,8 @@ parport
 parport_pc
 pata_acpi
 pcc_cpufreq
+pcmcia
+pcmcia_core
 pcspkr
 pinctrl_alderlake
 pinctrl_amd
@@ -590,6 +593,7 @@ spi_intel_platform
 spi_nor
 squashfs
 sr_mod
+ssb
 st
 stp
 sunrpc
