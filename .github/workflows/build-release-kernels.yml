@@ -78,11 +78,23 @@ jobs:
       - name: Download release artifacts
         uses: actions/download-artifact@v4
 
-      - name: Make new release
+      - name: Update release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          release_tag="linux-tkg-612"
+          gh release view "$release_tag"  \
+            --json assets \
+            --jq '.assets[].name' |
+          while read -r asset; do
+            gh release delete-asset "$release_tag" "$asset" --yes
+          done
           files_list=$(find *-kernel-packages-* -type f | paste -sd' ')
-          gh release create linux-tkg-612 $files_list --latest \
-          --title 'linux-tkg ${{ needs.kver-checks.outputs.latest_kernel }}' \
-          --notes 'This is 6.12 LTS version of linux-tkg built with custom modprobed.db. Mostly for personal use.'
+          gh release upload \
+            "$release_tag" \
+            $files_list
+          gh release edit \
+            "$release_tag" \
+            --title "linux-tkg ${{ needs.kver-checks.outputs.latest_kernel }}" \
+            --notes "This is 6.12 LTS version of linux-tkg built with custom modprobed.db. Mostly for personal use." \
+            --latest
