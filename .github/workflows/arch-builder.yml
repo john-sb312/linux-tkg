@@ -67,10 +67,19 @@ jobs:
 
       - name: rename kernel config
         run: mv kernelconfig.new kernelconfig.arch.${{ env._cpusched }}.txt
+      
+      - name: Build pacman repository
+        run: |
+          mkdir -p repo
+          cp "$PKGDEST"/*.pkg.tar.zst repo/
+          cd repo
+          repo-add linux-tkg.db.tar.zst *.pkg.tar.zst
 
       - uses: actions/upload-artifact@v4
         with:
           name: arch-kernel-packages-${{ env._cpusched }}
           path: |
-            ${{ env.PKGDEST }}/linux*.pkg.tar.zst
+            repo/*
             kernelconfig*.txt
+#            ${{ env.PKGDEST }}/linux*.pkg.tar.zst
+#            kernelconfig*.txt
