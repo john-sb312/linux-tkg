@@ -83,6 +83,6 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           files_list=$(find *-kernel-packages-* -type f | paste -sd' ')
-          gh release create ${{ needs.kver-checks.outputs.latest_kernel }} $files_list --latest \
+          gh release create linux-tkg-612 $files_list --latest \
           --title 'linux-tkg ${{ needs.kver-checks.outputs.latest_kernel }}' \
           --notes 'This is 6.12 LTS version of linux-tkg built with custom modprobed.db. Mostly for personal use.'
