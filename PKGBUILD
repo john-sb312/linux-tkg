@@ -5,58 +5,31 @@
 # Contributor: Tk-Glitch <ti3nou at gmail dot com>
 # Contributor: Hyper-KVM <hyperkvmx86 at gmail dot com>
 
-plain '       .---.`               `.---.'
-plain '    `/syhhhyso-           -osyhhhys/`'
-plain '   .syNMdhNNhss/``.---.``/sshNNhdMNys.'
-plain '   +sdMh.`+MNsssssssssssssssNM+`.hMds+'
-plain '   :syNNdhNNhssssssssssssssshNNhdNNys:'
-plain '    /ssyhhhysssssssssssssssssyhhhyss/'
-plain '    .ossssssssssssssssssssssssssssso.'
-plain '   :sssssssssssssssssssssssssssssssss:'
-plain '  /sssssssssssssssssssssssssssssssssss/   Linux-tkg'
-plain ' :sssssssssssssoosssssssoosssssssssssss:        kernels'
-plain ' osssssssssssssoosssssssoossssssssssssso'
-plain ' osssssssssssyyyyhhhhhhhyyyyssssssssssso'
-plain ' /yyyyyyhhdmmmmNNNNNNNNNNNmmmmdhhyyyyyy/'
-plain '  smmmNNNNNNNNNNNNNNNNNNNNNNNNNNNNNmmms'
-plain '   /dNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNd/'
-plain '    `:sdNNNNNNNNNNNNNNNNNNNNNNNNNds:`'
-plain '       `-+shdNNNNNNNNNNNNNNNdhs+-`'
-plain '             `.-:///////:-.`'
-
 _where="$PWD" # track basedir as different Arch based distros are moving srcdir around
+
+source "$_where"/linux-tkg-config/prepare
+_frog_banner
 
 # Create BIG_UGLY_FROGMINER only on first run and save in it all settings
 if [ ! -e "$_where"/BIG_UGLY_FROGMINER ]; then
 
-  cp "$_where"/customization.cfg "$_where"/BIG_UGLY_FROGMINER
-
-  # extract and define value of _EXT_CONFIG_PATH from customization file
-  if [[ -z "$_EXT_CONFIG_PATH" ]]; then
-    eval `grep _EXT_CONFIG_PATH "$_where"/customization.cfg`
-  fi
-
-  if [ -f "$_EXT_CONFIG_PATH" ]; then
-    msg2 "External configuration file $_EXT_CONFIG_PATH will be used and will override customization.cfg values."
-    cat "$_EXT_CONFIG_PATH" >> "$_where"/BIG_UGLY_FROGMINER
-  fi
-
-  declare -p -x >> "$_where"/BIG_UGLY_FROGMINER
+  aggregate_user_config
 
   echo -e "_ispkgbuild=\"true\"\n_distro=\"Arch\"\n_where=\"$PWD\"" >> "$_where"/BIG_UGLY_FROGMINER
 
   source "$_where"/BIG_UGLY_FROGMINER
-  source "$_where"/linux-tkg-config/prepare
 
   _tkg_initscript
 fi
 
 source "$_where"/BIG_UGLY_FROGMINER
 
+_vanilla_tag=""
+_vanilla_mode && _vanilla_tag="vanilla-"
 if [ -n "$_custom_pkgbase" ]; then
   pkgbase="${_custom_pkgbase}"
 else
-  pkgbase=linux"${_basever}"-tkg-"${_cpusched}"${_compiler_name}
+  pkgbase="linux${_basever}-tkg-${_vanilla_tag}${_cpusched}${_compiler_name}"
 fi
 pkgname=("${pkgbase}" "${pkgbase}-headers")
 pkgver="${_basekernel}"."${_sub}"
@@ -64,10 +37,30 @@ pkgrel=273
 pkgdesc='Linux-tkg'
 arch=('x86_64') # no i686 in here
 url="https://www.kernel.org/"
-license=('GPL2')
-makedepends=('bison' 'xmlto' 'docbook-xsl' 'inetutils' 'bc' 'libelf' 'pahole' 'patchutils' 'flex' 'python-sphinx' 'python-sphinx_rtd_theme' 'graphviz' 'imagemagick' 'git' 'cpio' 'perl' 'tar' 'xz' 'wget')
+license=('GPL-2.0-only')
+makedepends=(
+  bc
+  binutils
+  cpio
+  gettext
+  glibc
+  libelf
+  libgcc
+  openssl
+  pahole
+  perl
+  python
+  tar
+  xxhash
+  xz
+  zlib
+  zstd
+)
+if [ "$_rustdisable" != "true" ]; then
+  makedepends+=('rust' 'rust-bindgen' 'rust-src')
+fi
 if [ "$_compiler_name" = "-llvm" ]; then
-  makedepends+=( 'lld' 'clang' 'llvm')
+  makedepends+=('clang' 'llvm' 'lld')
 fi
 optdepends=('schedtool')
 options=('!strip' 'docs')
@@ -87,7 +80,7 @@ prepare() {
 
   rm -rf $pkgdir # Nuke the entire pkg folder so it'll get regenerated clean on next build
 
-  ln -s "${_kernel_work_folder_abs}" "${srcdir}"
+  ln -sf "${_kernel_work_folder_abs}" "${srcdir}"
 
   _tkg_srcprep
 }
@@ -118,8 +111,8 @@ build() {
     msg2 'ccache was found and will be used'
   fi
 
-  # document the TkG variables, excluding "_", "_EXT_CONFIG_PATH", "_where", and "_path".
-  declare -p | cut -d ' ' -f 3 | grep -P '^_(?!=|EXT_CONFIG_PATH|where|path)' > "${srcdir}/customization-full.cfg"
+  # document the TkG variables
+  sed -E 's|^declare -[^ ]* ||g' "$_where"/BIG_UGLY_FROGMINER > "${srcdir}/customization-full.cfg"
 
   # remove -O2 flag and place user optimization flag
   CFLAGS=${CFLAGS/-O2/}
@@ -131,7 +124,7 @@ build() {
     _schedtool="command schedtool -B -n 1"
     _ionice="command ionice -n 1"
   fi
-  _runtime=$(
+  (
     if [ -n "$_schedtool" ]; then
       _pid="$(exec bash -c 'echo "$PPID"')"
       $_schedtool "$_pid" ||:
@@ -140,9 +133,15 @@ build() {
 
     export KCPPFLAGS
     export KCFLAGS
+    export KRUSTFLAGS
 
-    time ( make ${_force_all_threads} ${llvm_opt} LOCALVERSION= bzImage modules 2>&1 ) 3>&1 1>&2 2>&3
-    return 0
+    set -o pipefail
+    time make ${_force_all_threads} ${llvm_opt} LOCALVERSION= bzImage modules |& tee "$_where/logs/build.log.txt"
+
+    if [[ $_kver -ge 509 && $(scripts/config -s CONFIG_DEBUG_INFO_BTF) = y ]]; then
+      msg2 "Generating BPF kernel type header..."
+      CFLAGS= make ${llvm_opt} -C tools/bpf/bpftool vmlinux.h feature-clang-bpf-co-re=1 |& tee -a "$_where/logs/build.log.txt"
+    fi
   )
 }
 
@@ -151,18 +150,20 @@ hackbase() {
 
   pkgdesc="The $pkgdesc kernel and modules - https://github.com/Frogging-Family/linux-tkg"
   depends=('coreutils' 'kmod' 'initramfs')
-  optdepends=('linux-docs: Kernel hackers manual - HTML documentation that comes with the Linux kernel.'
-              'crda: to set the correct wireless channels of your country.'
-              'linux-firmware: Firmware files for Linux'
-              'modprobed-db: Keeps track of EVERY kernel module that has ever been probed. Useful for make localmodconfig.'
-              'nvidia-tkg: NVIDIA drivers for all installed kernels - non-dkms version.'
-              'nvidia-dkms-tkg: NVIDIA drivers for all installed kernels - dkms version.'
-              'update-grub: Simple wrapper around grub-mkconfig.')
-  if [ -e "${srcdir}/ntsync.rules" ]; then
-    provides=("linux=${pkgver}" "${pkgbase}" VIRTUALBOX-GUEST-MODULES WIREGUARD-MODULE NTSYNC-MODULE ntsync-header)
-  else
-    provides=("linux=${pkgver}" "${pkgbase}" VIRTUALBOX-GUEST-MODULES WIREGUARD-MODULE)
-  fi
+  optdepends=(
+    "$pkgname-headers: headers and scripts for building modules"
+    'linux-firmware: firmware images needed for some devices'
+    'linux-docs: Kernel hackers manual - HTML documentation that comes with the Linux kernel.'
+    'nvidia-tkg: NVIDIA drivers for all installed kernels - non-dkms version.'
+    'nvidia-dkms-tkg: NVIDIA drivers for all installed kernels - dkms version.'
+    'modprobed-db: Keeps track of EVERY kernel module that has ever been probed. Useful for make localmodconfig.'
+    'update-grub: Simple wrapper around grub-mkconfig.'
+    'scx-scheds: to use sched-ext schedulers'
+    'wireless-regdb: to set the correct wireless channels of your country'
+  )
+  provides=("${pkgbase}" KSMBD-MODULE VIRTUALBOX-GUEST-MODULES WIREGUARD-MODULE)
+  [ -e "${srcdir}/ntsync.conf" ] && provides+=(NTSYNC-MODULE)
+  [ -e "${srcdir}/ntsync.rules" ] && provides+=(ntsync-header)
   replaces=(virtualbox-guest-modules-arch wireguard-arch)
 
   cd "$_kernel_work_folder_abs"
@@ -201,7 +202,7 @@ hackbase() {
   # ntsync
   if [ -e "${srcdir}/ntsync.conf" ]; then
     # workaround for missing header on <6.14 with ntsync
-    if [ $_basever -lt 614 ]; then
+    if [ "$_kver" -lt 614 ]; then
       if [ -e "${_kernel_work_folder_abs}/include/uapi/linux/ntsync.h" ] && [ ! -e "/usr/include/linux/ntsync.h" ]; then
         msg2 "Workaround missing ntsync header"
         install -Dm644 "${_kernel_work_folder_abs}"/include/uapi/linux/ntsync.h "${pkgdir}/usr/include/linux/ntsync.h"
@@ -223,14 +224,18 @@ hackheaders() {
   source "$_where"/BIG_UGLY_FROGMINER
 
   pkgdesc="Headers and scripts for building modules for the $pkgdesc kernel - https://github.com/Frogging-Family/linux-tkg"
-  provides=("linux-headers=${pkgver}" "${pkgbase}-headers=${pkgver}")
-  case $_basever in
-    54|57|58|59|510)
-    ;;
-    *)
-      depends=('pahole')
-    ;;
-  esac
+  provides=("${pkgbase}-headers=${pkgver}" LINUX-HEADERS)
+  depends=(
+    binutils
+    glibc
+    libelf
+    libgcc
+    openssl
+    pahole
+    xxhash
+    zlib
+    zstd
+  )
 
   cd "$_kernel_work_folder_abs"
 
@@ -239,20 +244,24 @@ hackheaders() {
   msg2 "Installing build files..."
   install -Dt "$builddir" -m644 .config Makefile Module.symvers System.map \
     localversion.* version vmlinux
+  if [[ -f tools/bpf/bpftool/vmlinux.h ]]; then
+    install -Dt "$builddir" -m644 tools/bpf/bpftool/vmlinux.h
+  fi
   install -Dt "$builddir/kernel" -m644 kernel/Makefile
   install -Dt "$builddir/arch/x86" -m644 arch/x86/Makefile
   cp -t "$builddir" -a scripts
+  ln -srt "$builddir" "$builddir/scripts/gdb/vmlinux-gdb.py"
 
-  # add objtool for external module building and enabled VALIDATION_STACK option
-  install -Dt "$builddir/tools/objtool" tools/objtool/objtool
+  if [[ $(scripts/config -s CONFIG_HAVE_STACK_VALIDATION) = y ]]; then
+    install -Dt "$builddir/tools/objtool" tools/objtool/objtool
+  fi
+
+  if [[ $(scripts/config -s CONFIG_DEBUG_INFO_BTF_MODULES) = y ]]; then
+    install -Dt "$builddir/tools/bpf/resolve_btfids" tools/bpf/resolve_btfids/resolve_btfids
+  fi
 
   # add xfs and shmem for aufs building
   mkdir -p "$builddir"/{fs/xfs,mm}
-
-  # add resolve_btfids on 5.16+
-  if [[ $_basever = 6* ]] || [ $_basever -ge 516 ]; then
-    install -Dt "$builddir"/tools/bpf/resolve_btfids tools/bpf/resolve_btfids/resolve_btfids || ( warning "$builddir/tools/bpf/resolve_btfids was not found. This is undesirable and might break dkms modules !!! Please review your config changes and consider using the provided defconfig and tweaks without further modification." && read -rp "Press enter to continue anyway" )
-  fi
 
   msg2 "Installing headers..."
   cp -t "$builddir" -a include
@@ -270,8 +279,25 @@ hackheaders() {
   install -Dt "$builddir/drivers/media/dvb-frontends" -m644 drivers/media/dvb-frontends/*.h
   install -Dt "$builddir/drivers/media/tuners" -m644 drivers/media/tuners/*.h
 
+  # https://bugs.archlinux.org/task/71392
+  install -Dt "$builddir/drivers/iio/common/hid-sensors" -m644 drivers/iio/common/hid-sensors/*.h
+
   msg2 "Installing KConfig files..."
   find . -name 'Kconfig*' -exec install -Dm644 {} "$builddir/{}" \;
+
+  if [[ $(scripts/config -s CONFIG_RUST) = y ]]; then
+    msg2 "Installing Rust files..."
+    install -Dt "$builddir/rust" -m644 rust/*.rmeta
+    install -Dt "$builddir/rust" rust/*.so
+    # Include generated Rust sources needed by external modules.
+    while IFS= read -r -d '' _gen; do
+      install -Dm644 "$_gen" "$builddir/$_gen"
+    done < <(find rust -type f -name 'generated_*.rs' -print0)
+  fi
+
+  msg2 "Installing unstripped VDSO..."
+  make INSTALL_MOD_PATH="$pkgdir/usr" vdso_install \
+    link=  # Suppress build-id symlinks
 
   msg2 "Removing unneeded architectures..."
   local arch

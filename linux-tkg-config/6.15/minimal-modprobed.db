@@ -37,6 +37,7 @@ apple_mfi_fastcharge
 appletalk
 asn1_encoder
 asus_atk0110
+asus_ec_sensors
 asus_nb_wmi
 asus_wmi
 ata_generic
@@ -47,6 +48,7 @@ ath9k_htc
 ath9k_hw
 atkbd
 atl1c
+atlantic
 auth_rpcgss
 autofs4
 battery
@@ -58,6 +60,7 @@ blake2b_generic
 bluetooth
 bnep
 bpf
+bpf_preload
 br_netfilter
 bridge
 brs
@@ -92,6 +95,7 @@ cifs_arc4
 cifs_md4
 cls_cgroup
 cmac
+cmdlinepart
 coretemp
 cp210x
 cpufreq_ondemand
@@ -120,6 +124,7 @@ dm_region_hash
 dm_round_robin
 dmi_sysfs
 dns_resolver
+drivetemp
 drm
 drm_buddy
 drm_display_helper
@@ -150,6 +155,7 @@ encrypted_keys
 esp4
 evdev
 exfat
+ext2
 ext4
 f2fs
 fan
@@ -171,6 +177,7 @@ gpio_amdpt
 gpio_generic
 gpu_sched
 grace
+gspca_ov534
 hfs
 hfsplus
 hid
@@ -192,6 +199,7 @@ hid_sony
 hid_steam
 hid_wiimote
 hidp
+hkdf
 hp_wmi
 hv_balloon
 hv_netvsc
@@ -273,6 +281,7 @@ irqbypass
 isofs
 it87
 iw_cm
+iwlmei
 iwlmvm
 iwlwifi
 jbd2
@@ -315,6 +324,7 @@ mc44s803
 md4
 md_mod
 mdio
+mdio_bus
 mdio_devres
 mei
 mei_gsc
@@ -410,6 +420,8 @@ nvme_core
 nvme_keyring
 nvmem_rave_sp_eeprom
 nvram
+of_mdio
+onboard_usb_dev
 overlay
 p8022
 parport
@@ -608,6 +620,7 @@ tg3
 thermal
 thinkpad_acpi
 thunderbolt
+tiny_power_button
 tls
 tpm
 tpm_crb
@@ -647,6 +660,7 @@ usbmon
 usbnet
 uvc
 uvcvideo
+uvesafb
 v4l2_dv_timings
 veth
 vfat
@@ -657,6 +671,7 @@ vfio_pci_core
 vhost
 vhost_iotlb
 vhost_net
+vhost_vsock
 video
 videobuf2_common
 videobuf2_memops

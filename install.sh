@@ -1,12 +1,14 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # Stop the script at any ecountered error
 set -e
 
 ###################### Definition of helper variables and functions
 
-_where=`pwd`
+_where=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 srcdir="$_where"
+
+cd "$_where"
 
 # Command used for superuser privileges (`sudo`, `doas`, `su`)
 if [ ! -x "$(command -v sudo)" ]; then
@@ -33,35 +35,45 @@ plain() {
  echo -e "$1" >&2
 }
 
+# Discard anything typed while the previous step was running, so that stray
+# keypresses during a long build don't get eaten by the next prompt.
+_flush_stdin() {
+  [ -t 0 ] || return 0
+  local _discard
+  while read -r -t 0; do
+    read -r _discard || break
+  done
+}
+
+# Set optional CPU and I/O priorities for the current build shell.
+_run_schedtool() {
+  if command -v schedtool >/dev/null 2>&1; then
+    msg2 "Using schedtool"
+    schedtool -B -n 1 "$BASHPID" >/dev/null 2>&1 || :
+  fi
+  if command -v ionice >/dev/null 2>&1; then
+    ionice -n 1 -p "$BASHPID" >/dev/null 2>&1 || :
+  fi
+}
+
 ####################################################################
 
 ################### Config sourcing
 
-# We are either not using script or not within the script sub-command yet
-# we don't export the environment in the script sub-command so sourcing current_env will
-# get us the actual environment
-if [[ -z "$SCRIPT" ]]; then
-  declare -p -x > current_env
-fi
+source linux-tkg-config/prepare
+aggregate_user_config
+source "$_where/BIG_UGLY_FROGMINER"
 
-source customization.cfg
-
-if [ -e "$_EXT_CONFIG_PATH" ]; then
-  msg2 "External configuration file $_EXT_CONFIG_PATH will be used and will override customization.cfg values."
-  source "$_EXT_CONFIG_PATH"
-fi
-
-. current_env
-
-if [[ "$_logging_use_script" =~ ^(Y|y|Yes|yes)$ && -z "$SCRIPT" ]]; then
+if command -v script &> /dev/null && [[ "$_logging_use_script" =~ ^(Y|y|Yes|yes)$ && -z "$SCRIPT" ]]; then
   # using script is enabled, but we are not within the script sub-command
   export SCRIPT=1
   msg2 "Using script"
-  /usr/bin/script -q -e -c "$0 $@" shell-output.log
+  trap - EXIT
+  script -q -e -c "$0 $@" shell-output.log
   exit
 fi
 
-source linux-tkg-config/prepare
+_frog_banner
 
 ####################################################################
 
@@ -73,18 +85,15 @@ _distro_prompt() {
 }
 
 _install_dependencies() {
-  if [ "$_compiler_name" = "llvm" ]; then
-    clang_deps="llvm clang lld"
-  fi
   if [ "$_distro" = "Debian" -o "$_distro" = "Ubuntu" ]; then
     msg2 "Installing dependencies"
-    sudo apt install bc bison build-essential ccache cpio fakeroot flex git kmod libdw-dev libelf-dev libncurses-dev libssl-dev lz4 qtbase5-dev rsync schedtool wget zstd debhelper ${clang_deps} -y
+    sudo apt install bc bison build-essential ccache cpio fakeroot flex git kmod libdw-dev libelf-dev libncurses-dev libssl-dev lz4 qtbase5-dev rsync schedtool wget zstd debhelper llvm clang lld bsdutils -y
   elif [ "$_distro" = "Fedora" ]; then
     msg2 "Installing dependencies"
-    sudo dnf install openssl-devel-engine hostname perl bison ccache dwarves elfutils-devel elfutils-libelf-devel fedora-packager fedpkg flex gcc-c++ git libXi-devel lz4 make ncurses-devel openssl openssl-devel perl-devel perl-generators pesign python3-devel qt5-qtbase-devel rpm-build rpmdevtools schedtool zstd bc rsync -y ${clang_deps} -y
+    sudo dnf install hostname perl bison ccache dwarves elfutils-devel elfutils-libelf-devel fedora-packager fedpkg flex gcc-c++ git libXi-devel lz4 make ncurses-devel openssl openssl-devel perl-devel perl-generators pesign python3-devel qt5-qtbase-devel rpm-build rpmdevtools schedtool zstd bc rsync llvm clang lld util-linux-script -y
   elif [ "$_distro" = "Suse" ]; then
     msg2 "Installing dependencies"
-    sudo zypper install -y hostname bc bison ccache dwarves elfutils flex gcc-c++ git libXi-devel libelf-devel libqt5-qtbase-common-devel libqt5-qtbase-devel lz4 make ncurses-devel openssl-devel patch pesign rpm-build rpmdevtools schedtool python3 rsync zstd libdw-devel ${clang_deps}
+    sudo zypper install -y hostname bc bison ccache dwarves elfutils flex gcc-c++ git libXi-devel libelf-devel libqt5-qtbase-common-devel libqt5-qtbase-devel lz4 make ncurses-devel openssl-devel patch pesign rpm-build rpmdevtools schedtool python3 rsync zstd libdw-devel llvm clang lld util-linux
   fi
 }
 
@@ -110,9 +119,9 @@ if [ "$1" = "install" ] || [ "$1" = "config" ]; then
   # Run init script that is also run in PKGBUILD, it will define some env vars that we will use
   _tkg_initscript
 
+  # Use LLVM libunwind for Kbuild host tools when requested.
   if [[ "${_compiler}" = "llvm" && "${_distro}" =~ ^(Generic|Gentoo)$ && "${_libunwind_replace}" = "true" ]]; then
-      export LDFLAGS_MODULE="-unwindlib=libunwind"
-      export HOSTLDFLAGS="-unwindlib=libunwind"
+    export HOSTLDFLAGS="-rtlib=compiler-rt -unwindlib=libunwind"
   fi
 
   # Install the needed dependencies if the user wants to install the kernel
@@ -161,7 +170,7 @@ if [ "$1" = "install" ]; then
   fi
 
   # ccache
-  if [ "$_noccache" != "true" ]; then
+  if [ "$_noccache" != "true" ] && command -v ccache >/dev/null 2>&1; then
     export PATH="/usr/lib64/ccache/:/usr/lib/ccache/bin/:$PATH"
 
     export CCACHE_SLOPPINESS="file_macro,locale,time_macros"
@@ -169,14 +178,21 @@ if [ "$1" = "install" ]; then
     msg2 'Enabled ccache'
   fi
 
+  _vanilla_tag=""
+  _vanilla_mode && _vanilla_tag="vanilla-"
   if [ -z "$_kernel_localversion" ]; then
     if [ "$_preempt_rt" = "1" ]; then
-      _kernel_flavor="tkg-${_cpusched}-rt${_compiler_name}"
+      _kernel_flavor="tkg-${_vanilla_tag}${_cpusched}-rt${_compiler_name}"
     else
-      _kernel_flavor="tkg-${_cpusched}${_compiler_name}"
+      _kernel_flavor="tkg-${_vanilla_tag}${_cpusched}${_compiler_name}"
     fi
   else
-    _kernel_flavor="tkg-${_kernel_localversion}"
+    if [[ "$_kernel_localversion" != *tkg* ]]; then
+      _localversion_tag="tkg-"
+    else
+      _localversion_tag=""
+    fi
+    _kernel_flavor="${_localversion_tag}${_kernel_localversion}"
   fi
 
   # Setup kernel_subver variable
@@ -187,10 +203,6 @@ if [ "$1" = "install" ]; then
     _kernel_subver="${_sub}"
   fi
 
-  #_timed_build() {
-    #_runtime=$( time ( schedtool -B -n 1 -e ionice -n 1 "$@" 2>&1 ) 3>&1 1>&2 2>&3 ) || _runtime=$( time ( "$@" 2>&1 ) 3>&1 1>&2 2>&3 ) - Bash 5.2 is broken https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=1018727
-  #}
-
   cd "$_kernel_work_folder_abs"
 
   msg2 "Add patched files to the diff.patch"
@@ -198,11 +210,16 @@ if [ "$1" = "install" ]; then
 
   export KCPPFLAGS
   export KCFLAGS
+  export KRUSTFLAGS
 
   if [[ "$_distro" =~ ^(Ubuntu|Debian)$ ]]; then
 
     msg2 "Building kernel DEB packages"
-    make ${llvm_opt} -j ${_thread_num} bindeb-pkg LOCALVERSION=-${_kernel_flavor}
+    (
+      _run_schedtool
+      set -o pipefail
+      time make ${llvm_opt} -j ${_thread_num} bindeb-pkg LOCALVERSION=-${_kernel_flavor} |& tee "$_where/logs/build.log.txt"
+    )
     msg2 "Building successfully finished!"
 
     # Create DEBS folder if it doesn't exist
@@ -220,7 +237,8 @@ if [ "$1" = "install" ]; then
     fi
 
     if [[ "$_install_after_building" = "prompt" ]]; then
-      read -p "Do you want to install the new Kernel ? Y/[n]: " _install
+      _flush_stdin
+      read -p "Do you want to install the new Kernel ? [N]/y: " _install
     fi
 
     if [[ "$_install_after_building" =~ ^(Y|y|Yes|yes)$ || "$_install" =~ ^(Y|y|Yes|yes)$ ]]; then
@@ -252,7 +270,12 @@ if [ "$1" = "install" ]; then
     _fedora_work_dir="$_kernel_work_folder_abs/rpmbuild"
 
     msg2 "Building kernel RPM packages"
-    RPMOPTS="--define '_topdir ${_fedora_work_dir}'" make ${llvm_opt} -j ${_thread_num} binrpm-pkg EXTRAVERSION="${_extra_ver_str}"
+    export RPMOPTS="--define '_topdir ${_fedora_work_dir}' --define 'install_mod_strip 1'"
+    (
+      _run_schedtool
+      set -o pipefail
+      time make ${llvm_opt} -j ${_thread_num} binrpm-pkg LOCALVERSION="${_extra_ver_str}" |& tee "$_where/logs/build.log.txt"
+    )
     msg2 "Building successfully finished!"
 
     # Create RPMS folder if it doesn't exist
@@ -270,7 +293,8 @@ if [ "$1" = "install" ]; then
     fi
 
     if [[ "$_install_after_building" = "prompt" ]]; then
-      read -p "Do you want to install the new Kernel ? Y/[n]: " _install
+      _flush_stdin
+      read -p "Do you want to install the new Kernel ? [N]/y: " _install
     fi
 
     if [[ "$_install_after_building" =~ ^(Y|y|Yes|yes)$ || "$_install" =~ ^(Y|y|Yes|yes)$ ]]; then
@@ -299,7 +323,8 @@ if [ "$1" = "install" ]; then
         warning "By default, system kernel updates will overwrite your custom kernel."
         warning "Adding a lock will prevent this but skip system kernel updates."
         msg2 "You can remove the lock if needed with 'sudo zypper removelock kernel-default-devel kernel-default kernel-devel kernel-syms'"
-        read -p "Would you like to lock system kernel packages ? Y/[n]: " _lock
+        _flush_stdin
+        read -p "Would you like to lock system kernel packages ? [N]/y: " _lock
         if [[ "$_lock" =~ ^(Y|y|Yes|yes)$ ]]; then
           sudo zypper addlock kernel-default-devel kernel-default kernel-devel kernel-syms
         fi
@@ -326,7 +351,17 @@ if [ "$1" = "install" ]; then
     fi
 
     msg2 "Building kernel"
-    make ${llvm_opt} -j ${_thread_num}
+    (
+      _run_schedtool
+      set -o pipefail
+      time make ${llvm_opt} -j ${_thread_num} |& tee "$_where/logs/build.log.txt"
+
+      rm -f tools/bpf/bpftool/vmlinux.h
+      if [[ $_kver -ge 509 && $(scripts/config -s CONFIG_DEBUG_INFO_BTF) = y ]]; then
+        msg2 "Generating BPF kernel type header..."
+        CFLAGS= make ${llvm_opt} -C tools/bpf/bpftool vmlinux.h feature-clang-bpf-co-re=1 |& tee -a "$_where/logs/build.log.txt"
+      fi
+    )
     msg2 "Build successful"
 
     if [ "$_STRIP" = "true" ]; then
@@ -371,7 +406,8 @@ if [ "$1" = "install" ]; then
     echo "    sudo make install"
 
     msg2 "Note: Uninstalling requires manual intervention, use './install.sh uninstall-help' for more information."
-    read -p "Continue ? Y/[n]: " _continue
+    _flush_stdin
+    read -p "Continue ? [N]/y: " _continue
 
     if ! [[ "$_continue" =~ ^(Y|y|Yes|yes)$ ]];then
       exit 0
@@ -393,31 +429,51 @@ if [ "$1" = "install" ]; then
 
     sudo make modules_install $_STRIP_MODS
 
+    # ntsync
+    if [ -e "${_where}/ntsync.conf" ]; then
+      # workaround for missing header on <6.14 with ntsync
+      if [ "$_kver" -lt 614 ]; then
+        if [ -e "${_kernel_work_folder_abs}/include/uapi/linux/ntsync.h" ] && [ ! -e "/usr/include/linux/ntsync.h" ]; then
+          msg2 "Workaround missing ntsync header"
+          sudo install -Dm644 "${_kernel_work_folder_abs}"/include/uapi/linux/ntsync.h /usr/include/linux/ntsync.h
+        fi
+      fi
+      # load ntsync module at boot
+      msg2 "Set the ntsync module to be loaded at boot through /etc/modules-load.d"
+      sudo install -Dm644 "${_where}/ntsync.conf" /etc/modules-load.d/ntsync-linux-tkg.conf
+    fi
+
+    # install udev rule for ntsync if needed (<6.14)
+    if [ -e "${_where}/ntsync.rules" ]; then
+      msg2 "Installing udev rule for ntsync"
+      sudo install -Dm644 "${_where}"/ntsync.rules /etc/udev/rules.d/ntsync.rules
+    fi
+
+    sudo cp "$(make ${llvm_opt} -s image_name)" "/lib/modules/$_kernelname/vmlinuz"
+
     msg2 "Removing modules from source folder in /usr/src/${_kernel_src_gentoo}"
     sudo find . -type f -name '*.ko' -delete
     sudo find . -type f -name '*.ko.cmd' -delete
-
-    msg2 "Installing kernel"
-    sudo make install
-
-    sudo cp "$(make ${llvm_opt} -s image_name)" "/lib/modules/$_kernelname/vmlinuz"
 
     if [ "$_distro" = "Gentoo" ]; then
 
       msg2 "Selecting the kernel source code as default source folder"
       sudo ln -sfn "/usr/src/$_headers_folder_name" "/usr/src/linux"
 
+      # Rebuild external modules before make install so installkernel hooks
+      # can include them in a generated initramfs or UKI.
       msg2 "Rebuild kernel modules with \"emerge @module-rebuild\" ?"
-      if [ "$_compiler" = "llvm" ];then
-        warning "Building modules with LLVM/Clang is mostly unsupported OOTB by \"emerge @module-rebuild\" except for Nvidia 465.31+"
-        warning "     Manually setting \"CC=clang\" for some modules may work if you haven't used LTO"
-      fi
-
-      read -p "Y/[n]: " _continue
+      _flush_stdin
+      read -p "[N]/y: " _continue
       if [[ "$_continue" =~ ^(Y|y|Yes|yes)$ ]];then
-        sudo emerge @module-rebuild --keep-going
+        if ! sudo emerge @module-rebuild --keep-going; then
+          warning "External kernel module rebuilds did not complete; continuing with kernel installation."
+        fi
       fi
     fi
+
+    msg2 "Installing kernel"
+    sudo make install
 
   fi
 fi

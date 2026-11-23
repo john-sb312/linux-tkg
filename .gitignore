@@ -21,8 +21,10 @@ pkg/*
 *.myfrag
 logs/*
 kernel_updates
+kernelconfig.new
 gnupg/
 *sha256sum*
 current_env
+BIG_UGLY_FROGMINER
 linux-kernel.git/
 linux-src-git/

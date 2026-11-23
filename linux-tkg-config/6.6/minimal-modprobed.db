@@ -35,6 +35,7 @@ apple_mfi_fastcharge
 appletalk
 asn1_encoder
 asus_atk0110
+asus_ec_sensors
 asus_nb_wmi
 asus_wmi
 ata_generic
@@ -45,6 +46,7 @@ ath9k_htc
 ath9k_hw
 atkbd
 atl1c
+atlantic
 auth_rpcgss
 autofs4
 battery
@@ -124,6 +126,7 @@ dm_region_hash
 dm_round_robin
 dmi_sysfs
 dns_resolver
+drivetemp
 drm
 drm_buddy
 drm_display_helper
@@ -177,6 +180,7 @@ gpio_amdpt
 gpio_generic
 gpu_sched
 grace
+gspca_ov534
 hfs
 hfsplus
 hid
@@ -327,6 +331,7 @@ mc44s803
 md4
 md_mod
 mdio
+mdio_bus
 mdio_devres
 mei
 mei_gsc
@@ -420,6 +425,7 @@ nvme_common
 nvme_core
 nvmem_rave_sp_eeprom
 nvram
+of_mdio
 overlay
 p8022
 parport
@@ -663,6 +669,7 @@ vfio_pci_core
 vhost
 vhost_iotlb
 vhost_net
+vhost_vsock
 video
 videobuf2_common
 videobuf2_memops

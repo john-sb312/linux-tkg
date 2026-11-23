@@ -41,7 +41,7 @@ jobs:
           source current_kernels.txt
 
           latest_kernel=`get_latest_kernel "${_current_kernels[0]}"`
-          if [[ "$latest_kernel" =~ "rc" ]]
+          if [[ -z "$latest_kernel" || "$latest_kernel" =~ "rc" ]]
           then
             latest_kernel=`get_latest_kernel "${_current_kernels[1]}"`
           fi

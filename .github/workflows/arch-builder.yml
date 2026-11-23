@@ -13,6 +13,10 @@ env:
   _debugdisable: "true"
   _noccache: "true"
   _STRIP: "true"
+  # Upstream CI builds with llvm + full LTO. This fork builds gcc with LTO disabled
+  # (see customization.cfg) - uncomment to opt in.
+  # _compiler: "llvm"
+  # _lto_mode: "full"
   _kernel_on_diet: "false"
   _kernel_work_folder: "/tmp"
   _kernel_source_folder: "/tmp"

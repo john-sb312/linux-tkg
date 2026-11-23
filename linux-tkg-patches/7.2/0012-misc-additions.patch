@@ -1,0 +1,707 @@
+From a19b0d33937c70d8d9c17d98da43f2979d39694e Mon Sep 17 00:00:00 2001
+From: Felix Hädicke <felixhaedicke@web.de>
+Date: Thu, 19 Nov 2020 09:22:32 +0100
+Subject: [PATCH 1/9] HID: quirks: Add Apple Magic Trackpad 2 to
+ hid_have_special_driver list
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+The Apple Magic Trackpad 2 is handled by the magicmouse driver. And
+there were severe stability issues when both drivers (hid-generic and
+hid-magicmouse) were loaded for this device.
+
+Fixes: https://bugzilla.kernel.org/show_bug.cgi?id=210241
+
+Signed-off-by: Felix Hädicke <felixhaedicke@web.de>
+---
+ drivers/hid/hid-quirks.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/drivers/hid/hid-quirks.c b/drivers/hid/hid-quirks.c
+index dcfa827844..01568178be 100644
+--- a/drivers/hid/hid-quirks.c
++++ b/drivers/hid/hid-quirks.c
+@@ -542,6 +542,8 @@ static const struct hid_device_id hid_have_special_driver[] = {
+ #if IS_ENABLED(CONFIG_HID_MAGICMOUSE)
+ 	{ HID_BLUETOOTH_DEVICE(USB_VENDOR_ID_APPLE, USB_DEVICE_ID_APPLE_MAGICMOUSE) },
+ 	{ HID_BLUETOOTH_DEVICE(USB_VENDOR_ID_APPLE, USB_DEVICE_ID_APPLE_MAGICTRACKPAD) },
++	{ HID_BLUETOOTH_DEVICE(BT_VENDOR_ID_APPLE, USB_DEVICE_ID_APPLE_MAGICTRACKPAD2) },
++	{ HID_USB_DEVICE(USB_VENDOR_ID_APPLE, USB_DEVICE_ID_APPLE_MAGICTRACKPAD2) },
+ #endif
+ #if IS_ENABLED(CONFIG_HID_MAYFLASH)
+ 	{ HID_USB_DEVICE(USB_VENDOR_ID_DRAGONRISE, USB_DEVICE_ID_DRAGONRISE_PS3) },
+-- 
+2.56.0
+
+
+From c75a2d7a6d8b372ee115f3028707f7f1da49c1ac Mon Sep 17 00:00:00 2001
+From: Tk-Glitch <ti3nou@gmail.com>
+Date: Wed, 3 Feb 2021 11:20:12 +0200
+Subject: [PATCH 2/9] Revert "cpufreq: Avoid configuring old governors as
+ default with intel_pstate"
+
+This is an undesirable behavior for us since our aggressive ondemand performs
+better than schedutil for gaming when using intel_pstate in passive mode.
+Also it interferes with the option to select the desired default governor we have.
+---
+ drivers/cpufreq/Kconfig | 2 --
+ 1 file changed, 2 deletions(-)
+
+diff --git a/drivers/cpufreq/Kconfig b/drivers/cpufreq/Kconfig
+index db83f33656..a9135d76d6 100644
+--- a/drivers/cpufreq/Kconfig
++++ b/drivers/cpufreq/Kconfig
+@@ -71,7 +71,6 @@ config CPU_FREQ_DEFAULT_GOV_USERSPACE
+ 
+ config CPU_FREQ_DEFAULT_GOV_ONDEMAND
+ 	bool "ondemand"
+-	depends on !(X86_INTEL_PSTATE && SMP)
+ 	select CPU_FREQ_GOV_ONDEMAND
+ 	select CPU_FREQ_GOV_PERFORMANCE
+ 	help
+@@ -84,7 +83,6 @@ config CPU_FREQ_DEFAULT_GOV_ONDEMAND
+ 
+ config CPU_FREQ_DEFAULT_GOV_CONSERVATIVE
+ 	bool "conservative"
+-	depends on !(X86_INTEL_PSTATE && SMP)
+ 	select CPU_FREQ_GOV_CONSERVATIVE
+ 	select CPU_FREQ_GOV_PERFORMANCE
+ 	help
+-- 
+2.56.0
+
+
+From 1e066001803de1789fd6322a82657104593fba15 Mon Sep 17 00:00:00 2001
+From: "Jan Alexander Steffens (heftig)" <heftig@archlinux.org>
+Date: Sat, 13 Jan 2024 15:29:25 +0100
+Subject: [PATCH 3/9] arch/Kconfig: Default to maximum amount of ASLR bits
+
+To mitigate https://zolutal.github.io/aslrnt/; do this with a patch to
+avoid having to enable `CONFIG_EXPERT`.
+---
+ arch/Kconfig | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/arch/Kconfig b/arch/Kconfig
+index fa7507ac8e..bf9b5af39c 100644
+--- a/arch/Kconfig
++++ b/arch/Kconfig
+@@ -1228,7 +1228,7 @@ config ARCH_MMAP_RND_BITS
+ 	int "Number of bits to use for ASLR of mmap base address" if EXPERT
+ 	range ARCH_MMAP_RND_BITS_MIN ARCH_MMAP_RND_BITS_MAX
+ 	default ARCH_MMAP_RND_BITS_DEFAULT if ARCH_MMAP_RND_BITS_DEFAULT
+-	default ARCH_MMAP_RND_BITS_MIN
++	default ARCH_MMAP_RND_BITS_MAX
+ 	depends on HAVE_ARCH_MMAP_RND_BITS
+ 	help
+ 	  This value can be used to select the number of bits to use to
+@@ -1262,7 +1262,7 @@ config ARCH_MMAP_RND_COMPAT_BITS
+ 	int "Number of bits to use for ASLR of mmap base address for compatible applications" if EXPERT
+ 	range ARCH_MMAP_RND_COMPAT_BITS_MIN ARCH_MMAP_RND_COMPAT_BITS_MAX
+ 	default ARCH_MMAP_RND_COMPAT_BITS_DEFAULT if ARCH_MMAP_RND_COMPAT_BITS_DEFAULT
+-	default ARCH_MMAP_RND_COMPAT_BITS_MIN
++	default ARCH_MMAP_RND_COMPAT_BITS_MAX
+ 	depends on HAVE_ARCH_MMAP_RND_COMPAT_BITS
+ 	help
+ 	  This value can be used to select the number of bits to use to
+-- 
+2.56.0
+
+
+From 5ceec092eab1fe0f5bff6b4411c1b476d5a15ff8 Mon Sep 17 00:00:00 2001
+From: Peter Jung <admin@ptr1337.dev>
+Date: Thu, 21 Mar 2024 19:00:50 +0100
+Subject: [PATCH 4/9] cachy: move AMD_PRIVATE_COLOR to Kconfig
+
+Co-authored-by: PedroHLC <root@pedrohlc.com>
+Signed-off-by: Peter Jung <admin@ptr1337.dev>
+---
+ drivers/gpu/drm/amd/display/Kconfig                     | 6 ++++++
+ drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c       | 2 +-
+ drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_color.c | 2 +-
+ drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_crtc.c  | 7 +++----
+ drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_plane.c | 7 +++----
+ 5 files changed, 14 insertions(+), 10 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/Kconfig b/drivers/gpu/drm/amd/display/Kconfig
+index 1727d25646..35320a297f 100644
+--- a/drivers/gpu/drm/amd/display/Kconfig
++++ b/drivers/gpu/drm/amd/display/Kconfig
+@@ -56,6 +56,12 @@ config DRM_AMD_SECURE_DISPLAY
+ 	  This option enables the calculation of crc of specific region via
+ 	  debugfs. Cooperate with specific DMCU FW.
+ 
++config AMD_PRIVATE_COLOR
++	bool "Enable KMS color management by AMD for AMD"
++	default n
++	help
++	  This option extends the KMS color management API with AMD driver-specific properties to enhance the color management support on AMD Steam Deck.
++
+ config DRM_AMD_DC_KUNIT_TEST
+ 	tristate "KUnit tests for the AMD DC display driver" if !KUNIT_ALL_TESTS
+ 	depends on DRM_AMD_DC && KUNIT && DEBUG_FS && DRM_KUNIT_TEST_HELPERS
+diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+index b92d129962..1a3837a347 100644
+--- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
++++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+@@ -5220,7 +5220,7 @@ static int amdgpu_dm_mode_config_init(struct amdgpu_device *adev)
+ 	if (r)
+ 		return r;
+ 
+-#ifdef AMD_PRIVATE_COLOR
++#ifdef CONFIG_AMD_PRIVATE_COLOR
+ 	if (amdgpu_dm_create_color_properties(adev))
+ 		return -ENOMEM;
+ #endif
+diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_color.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_color.c
+index 46a74f8954..48a617d680 100644
+--- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_color.c
++++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_color.c
+@@ -187,7 +187,7 @@ struct fixed31_32 amdgpu_dm_fixpt_from_s3132(__u64 x)
+ }
+ EXPORT_IF_KUNIT(amdgpu_dm_fixpt_from_s3132);
+ 
+-#ifdef AMD_PRIVATE_COLOR
++#ifdef CONFIG_AMD_PRIVATE_COLOR
+ /* Pre-defined Transfer Functions (TF)
+  *
+  * AMD driver supports pre-defined mathematical functions for transferring
+diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_crtc.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_crtc.c
+index 7206439ea5..aabc0b39b8 100644
+--- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_crtc.c
++++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_crtc.c
+@@ -484,7 +484,7 @@ static int amdgpu_dm_crtc_late_register(struct drm_crtc *crtc)
+ }
+ #endif
+ 
+-#ifdef AMD_PRIVATE_COLOR
++#ifdef CONFIG_AMD_PRIVATE_COLOR
+ /**
+  * dm_crtc_additional_color_mgmt - enable additional color properties
+  * @crtc: DRM CRTC
+@@ -566,7 +566,7 @@ static const struct drm_crtc_funcs amdgpu_dm_crtc_funcs = {
+ #if defined(CONFIG_DEBUG_FS)
+ 	.late_register = amdgpu_dm_crtc_late_register,
+ #endif
+-#ifdef AMD_PRIVATE_COLOR
++#ifdef CONFIG_AMD_PRIVATE_COLOR
+ 	.atomic_set_property = amdgpu_dm_atomic_crtc_set_property,
+ 	.atomic_get_property = amdgpu_dm_atomic_crtc_get_property,
+ #endif
+@@ -792,7 +792,7 @@ int amdgpu_dm_crtc_init(struct amdgpu_display_manager *dm,
+ 
+ 	drm_mode_crtc_set_gamma_size(&acrtc->base, MAX_COLOR_LEGACY_LUT_ENTRIES);
+ 
+-#ifdef AMD_PRIVATE_COLOR
++#ifdef CONFIG_AMD_PRIVATE_COLOR
+ 	dm_crtc_additional_color_mgmt(&acrtc->base);
+ #endif
+ 	return 0;
+@@ -802,4 +802,3 @@ int amdgpu_dm_crtc_init(struct amdgpu_display_manager *dm,
+ 	kfree(cursor_plane);
+ 	return res;
+ }
+-
+diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_plane.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_plane.c
+index 1d69ecae10..7d9cc643d5 100644
+--- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_plane.c
++++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm_plane.c
+@@ -1610,7 +1610,7 @@ static void amdgpu_dm_plane_drm_plane_destroy_state(struct drm_plane *plane,
+ 	drm_atomic_helper_plane_destroy_state(plane, state);
+ }
+ 
+-#ifdef AMD_PRIVATE_COLOR
++#ifdef CONFIG_AMD_PRIVATE_COLOR
+ static void
+ dm_atomic_plane_attach_color_mgmt_properties(struct amdgpu_display_manager *dm,
+ 					     struct drm_plane *plane)
+@@ -1840,7 +1840,7 @@ static const struct drm_plane_funcs dm_plane_funcs = {
+ 	.atomic_destroy_state = amdgpu_dm_plane_drm_plane_destroy_state,
+ 	.format_mod_supported = amdgpu_dm_plane_format_mod_supported,
+ 	.format_mod_supported_async = amdgpu_dm_plane_format_mod_supported,
+-#ifdef AMD_PRIVATE_COLOR
++#ifdef CONFIG_AMD_PRIVATE_COLOR
+ 	.atomic_set_property = dm_atomic_plane_set_property,
+ 	.atomic_get_property = dm_atomic_plane_get_property,
+ #endif
+@@ -1937,7 +1937,7 @@ int amdgpu_dm_plane_init(struct amdgpu_display_manager *dm,
+ 	else
+ 		drm_plane_helper_add(plane, &dm_plane_helper_funcs);
+ 
+-#ifdef AMD_PRIVATE_COLOR
++#ifdef CONFIG_AMD_PRIVATE_COLOR
+ 	dm_atomic_plane_attach_color_mgmt_properties(dm, plane);
+ #else
+ 	res = dm_plane_init_colorops(plane);
+@@ -1962,4 +1962,3 @@ bool amdgpu_dm_plane_is_video_format(uint32_t format)
+ 
+ 	return false;
+ }
+-
+-- 
+2.56.0
+
+
+From 1f36cc1e6b798d8bee72aad1da40656b795b4c01 Mon Sep 17 00:00:00 2001
+From: Steven Barrett <steven@liquorix.net>
+Date: Fri, 15 Mar 2024 12:36:51 -0500
+Subject: [PATCH 5/9] ZEN: drm/amdgpu/pm: Allow override of min_power_limit
+ with ignore_min_pcap
+
+---
+ drivers/gpu/drm/amd/amdgpu/amdgpu.h       |  1 +
+ drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c   | 10 ++++++++++
+ drivers/gpu/drm/amd/pm/amdgpu_pm.c        |  3 +++
+ drivers/gpu/drm/amd/pm/swsmu/amdgpu_smu.c | 14 ++++++++++++--
+ 4 files changed, 26 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu.h b/drivers/gpu/drm/amd/amdgpu/amdgpu.h
+index 6b0c1ad5a0..11a6020dd8 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu.h
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu.h
+@@ -161,6 +161,7 @@ struct amdgpu_watchdog_timer {
+  */
+ extern int amdgpu_modeset;
+ extern unsigned int amdgpu_vram_limit;
++extern int amdgpu_ignore_min_pcap;
+ extern int amdgpu_vis_vram_limit;
+ extern int amdgpu_gart_size;
+ extern int amdgpu_gtt_size;
+diff --git a/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c b/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c
+index 14b539d50e..e4fe117d1e 100644
+--- a/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c
++++ b/drivers/gpu/drm/amd/amdgpu/amdgpu_drv.c
+@@ -150,6 +150,7 @@ enum AMDGPU_DEBUG_MASK {
+ };
+ 
+ unsigned int amdgpu_vram_limit = UINT_MAX;
++int amdgpu_ignore_min_pcap = 0; /* do not ignore by default */
+ int amdgpu_vis_vram_limit;
+ int amdgpu_gart_size = -1; /* auto */
+ int amdgpu_gtt_size = -1; /* auto */
+@@ -271,6 +272,15 @@ struct amdgpu_watchdog_timer amdgpu_watchdog_timer = {
+ 	.period = 0x0, /* default to 0x0 (timeout disable) */
+ };
+ 
++/**
++ * DOC: ignore_min_pcap (int)
++ * Ignore the minimum power cap.
++ * Useful on graphics cards where the minimum power cap is very high.
++ * The default is 0 (Do not ignore).
++ */
++MODULE_PARM_DESC(ignore_min_pcap, "Ignore the minimum power cap");
++module_param_named(ignore_min_pcap, amdgpu_ignore_min_pcap, int, 0600);
++
+ /**
+  * DOC: vramlimit (int)
+  * Restrict the total amount of VRAM in MiB for testing.  The default is 0 (Use full VRAM).
+diff --git a/drivers/gpu/drm/amd/pm/amdgpu_pm.c b/drivers/gpu/drm/amd/pm/amdgpu_pm.c
+index 85b089a3dc..17bc6d7f12 100644
+--- a/drivers/gpu/drm/amd/pm/amdgpu_pm.c
++++ b/drivers/gpu/drm/amd/pm/amdgpu_pm.c
+@@ -3410,6 +3410,9 @@ static ssize_t amdgpu_hwmon_show_power_cap_min(struct device *dev,
+ 					 struct device_attribute *attr,
+ 					 char *buf)
+ {
++	if (amdgpu_ignore_min_pcap)
++		return sysfs_emit(buf, "%i\n", 0);
++
+ 	return amdgpu_hwmon_show_power_cap_generic(dev, attr, buf, PP_PWR_LIMIT_MIN);
+ }
+ 
+diff --git a/drivers/gpu/drm/amd/pm/swsmu/amdgpu_smu.c b/drivers/gpu/drm/amd/pm/swsmu/amdgpu_smu.c
+index 3969a76704..49b93a86e2 100644
+--- a/drivers/gpu/drm/amd/pm/swsmu/amdgpu_smu.c
++++ b/drivers/gpu/drm/amd/pm/swsmu/amdgpu_smu.c
+@@ -3001,7 +3001,10 @@ int smu_get_power_limit(void *handle,
+ 			*limit = smu->max_power_limit;
+ 			break;
+ 		case SMU_PPT_LIMIT_MIN:
+-			*limit = smu->min_power_limit;
++			if (amdgpu_ignore_min_pcap)
++				*limit = 0;
++			else
++				*limit = smu->min_power_limit;
+ 			break;
+ 		default:
+ 			return -EINVAL;
+@@ -3022,7 +3025,14 @@ static int smu_set_power_limit(void *handle, uint32_t limit_type, uint32_t limit
+ 	if (limit_type == SMU_DEFAULT_PPT_LIMIT) {
+ 		if (!limit)
+ 			limit = smu->current_power_limit;
+-		if ((limit > smu->max_power_limit) || (limit < smu->min_power_limit)) {
++		if (amdgpu_ignore_min_pcap) {
++			if ((limit > smu->max_power_limit)) {
++			dev_err(smu->adev->dev,
++				"New power limit (%d) is over the max allowed %d\n",
++				limit, smu->max_power_limit);
++			return -EINVAL;
++			}
++		} else if ((limit > smu->max_power_limit) || (limit < smu->min_power_limit)) {
+ 			dev_err(smu->adev->dev,
+ 				"New power limit (%d) is out of range [%d,%d]\n",
+ 				limit, smu->min_power_limit, smu->max_power_limit);
+-- 
+2.56.0
+
+
+From 874e1826c5cfb9bc561446be53c216e450a8e305 Mon Sep 17 00:00:00 2001
+From: Eric Naim <dnaim@cachyos.org>
+Date: Tue, 15 Sep 2026 10:05:48 +0800
+Subject: [PATCH 6/9] Revert "drm/gud: validate TV mode names before creating
+ enum property"
+
+This reverts commit da1ea35fea67ad841f4ada28dd61b41be65e5437.
+This commit breaks compiling with clang 22.1.8 -O3.
+
+Since the prior commit already mitigates the issue, reverting this
+should be fine until clang gets updated in Arch Linux/CachyOS.
+
+Signed-off-by: Eric Naim <dnaim@cachyos.org>
+---
+ drivers/gpu/drm/gud/gud_connector.c | 7 ++-----
+ 1 file changed, 2 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/gpu/drm/gud/gud_connector.c b/drivers/gpu/drm/gud/gud_connector.c
+index 8141c3a1e3..5c0065c876 100644
+--- a/drivers/gpu/drm/gud/gud_connector.c
++++ b/drivers/gpu/drm/gud/gud_connector.c
+@@ -399,11 +399,8 @@ static int gud_connector_add_tv_mode(struct gud_device *gdrm, struct drm_connect
+ 	for (i = 0; i < num_modes; i++) {
+ 		char *mode = &buf[i * GUD_CONNECTOR_TV_MODE_NAME_LEN];
+ 
+-		if (!memchr(mode, '\0', GUD_CONNECTOR_TV_MODE_NAME_LEN)) {
+-			ret = -EIO;
+-			goto free;
+-		}
+-
++		/* The device is not trusted to NUL-terminate the name */
++		mode[GUD_CONNECTOR_TV_MODE_NAME_LEN - 1] = '\0';
+ 		modes[i] = mode;
+ 	}
+ 
+-- 
+2.56.0
+
+
+From e8b7a536d4f9c9972500dcbe3f25426b5f45f136 Mon Sep 17 00:00:00 2001
+From: Werner Sembach <wse@tuxedocomputers.com>
+Date: Tue, 9 Jun 2026 14:43:48 +0200
+Subject: [PATCH 7/9] drm/amd/display: Remove unnecessary
+ SIGNAL_TYPE_HDMI_TYPE_A check
+
+Remove unnecessary SIGNAL_TYPE_HDMI_TYPE_A check that was performed in the
+drm_mode_is_420_only() case, but not in the drm_mode_is_420_also() &&
+force_yuv420_output case.
+
+Without further knowledge if YCbCr 4:2:0 is supported outside of HDMI,
+there is no reason to use RGB when the display
+reports drm_mode_is_420_only() even on a non HDMI connection.
+
+This patch also moves both checks in the same if-case. This  eliminates an
+extra else-if-case.
+
+Signed-off-by: Werner Sembach <wse@tuxedocomputers.com>
+Signed-off-by: Andri Yngvason <andri@yngvason.is>
+Tested-by: Andri Yngvason <andri@yngvason.is>
+Reviewed-by: Daniel Stone <daniel@fooishbar.org>
+Signed-off-by: Nicolas Frattaroli <nicolas.frattaroli@collabora.com>
+Reviewed-by: Harry Wentland <harry.wentland@amd.com>
+Signed-off-by: Alex Deucher <alexander.deucher@amd.com>
+Cherry-picked-for: https://gitlab.archlinux.org/archlinux/packaging/packages/linux/-/work_items/208
+---
+ drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c | 15 +++++----------
+ 1 file changed, 5 insertions(+), 10 deletions(-)
+
+diff --git a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+index 1a3837a347..db0bf8b099 100644
+--- a/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
++++ b/drivers/gpu/drm/amd/display/amdgpu_dm/amdgpu_dm.c
+@@ -7088,16 +7088,11 @@ static void fill_stream_properties_from_drm_display_mode(
+ 	timing_out->v_border_top = 0;
+ 	timing_out->v_border_bottom = 0;
+ 	/* TODO: un-hardcode */
+-	if (drm_mode_is_420_only(info, mode_in)
+-			&& (stream->signal == SIGNAL_TYPE_HDMI_TYPE_A ||
+-			    stream->signal == SIGNAL_TYPE_HDMI_FRL)
+-			&& aconnector
+-			&& aconnector->force_yuv_pixel_format == PIXEL_ENCODING_YCBCR420)
+-		timing_out->pixel_encoding = PIXEL_ENCODING_YCBCR420;
+-	else if (drm_mode_is_420_also(info, mode_in)
+-			&& aconnector
+-			&& (aconnector->force_yuv_pixel_format == PIXEL_ENCODING_YCBCR420
+-			|| aconnector->force_yuv420_output))
++	if (drm_mode_is_420_only(info, mode_in) ||
++	    (aconnector &&
++	     (aconnector->force_yuv_pixel_format == PIXEL_ENCODING_YCBCR420 ||
++	      aconnector->force_yuv420_output) &&
++	     drm_mode_is_420_also(info, mode_in)))
+ 		timing_out->pixel_encoding = PIXEL_ENCODING_YCBCR420;
+ 	else if ((connector->display_info.color_formats & BIT(DRM_OUTPUT_COLOR_FORMAT_YCBCR422))
+ 			&& aconnector
+-- 
+2.56.0
+
+
+From bf3fb94d361d5f6c931045e211d96786944ca7d4 Mon Sep 17 00:00:00 2001
+From: Arun R Murthy <arun.r.murthy@intel.com>
+Date: Tue, 15 Sep 2026 09:53:00 +0530
+Subject: [PATCH 8/9] drm/i915/dp: On DPCD init wake the DPRx for eDP
+
+Its observed that on AUX_CH failure, even if the retry is increased to
+1000, it does not succeed. Either the command might be wrong or sink in
+an unknown/sleep state can cause this. So try waking the sink device.
+Before reading the DPCD caps wake the sink for eDP.
+
+v2: Use poll_timeout_us (Jani N)
+    Add the reason, why this change is required (Ville)
+v3: Wake sink only for eDP
+    Remove the dpcd probe set to true/false in wake_sink (Imre)
+v4: make edp_wake_sinc() static and dpcd_readb -> dpcd_reab_byte (Suraj)
+v5: Drop poll_timeout_us. drm_dp_dpcd_read_byte() already retries the AUX
+    transaction internally (up to ~16ms), so the outer 6ms poll could
+    never iterate and only added a pre-read delay on the hot path; read
+    DP_SET_POWER once instead. Wake the sink before reading the DPCD
+    caps, otherwise a sleeping sink fails the caps read and returns
+    early before the wake ever runs. (Suraj, Jani, Sashiko)
+v6: Mask and write DP_SET_POWER (Sashiko)
+
+Closes: https://gitlab.freedesktop.org/drm/i915/kernel/-/issues/4391
+Closes: https://gitlab.freedesktop.org/drm/i915/kernel/-/work_items/16654
+Signed-off-by: Arun R Murthy <arun.r.murthy@intel.com>
+Reviewed-by: Suraj Kandpal <suraj.kandpal@intel.com>
+Link: https://patch.msgid.link/20260915042300.2201757-1-arun.r.murthy@intel.com
+Cherry-picked-for: https://github.com/zen-kernel/zen-kernel/issues/422
+---
+ drivers/gpu/drm/i915/display/intel_dp.c | 38 +++++++++++++++++++++++++
+ 1 file changed, 38 insertions(+)
+
+diff --git a/drivers/gpu/drm/i915/display/intel_dp.c b/drivers/gpu/drm/i915/display/intel_dp.c
+index ba0b19d116..291f26cadd 100644
+--- a/drivers/gpu/drm/i915/display/intel_dp.c
++++ b/drivers/gpu/drm/i915/display/intel_dp.c
+@@ -4889,6 +4889,38 @@ intel_edp_set_sink_rates(struct intel_dp *intel_dp)
+ 	intel_edp_set_data_override_rates(intel_dp);
+ }
+ 
++static void intel_edp_wake_sink(struct intel_dp *intel_dp)
++{
++	u8 value = 0;
++	int ret;
++
++	/*
++	 * Read the current sink power state. drm_dp_dpcd_read_byte() already
++	 * retries the AUX transaction internally, so a single read suffices.
++	 * First commercial eDP panels are Ver1.0 or 1.1, on which DPCD
++	 * DP_SET_POWER is supported.
++	 */
++	ret = drm_dp_dpcd_read_byte(&intel_dp->aux, DP_SET_POWER, &value);
++
++	/*
++	 * If the AUX read failed the sink may be asleep and not responding,
++	 * or it read back D3; in either case wake it up to D0.
++	 * In case of AUX read failure which is usually a POR case, the
++	 * remaining bits of register 0x600 is set to '0' on POR. So a bare
++	 * write should be fine.
++	 */
++	if (ret < 0 || value == DP_SET_POWER_D3) {
++		value &= ~DP_SET_POWER_MASK;
++		value |= DP_SET_POWER_D0;
++		drm_dp_dpcd_write_byte(&intel_dp->aux, DP_SET_POWER,
++				       value);
++		/* After setting to D0 need a min of 1ms to wake (Spec DP2.1 sec 2.3.1.2) */
++		fsleep(1000);
++		drm_dp_dpcd_write_byte(&intel_dp->aux, DP_SET_POWER,
++				       value);
++	}
++}
++
+ static bool
+ intel_edp_init_dpcd(struct intel_dp *intel_dp, struct intel_connector *connector)
+ {
+@@ -4899,6 +4931,12 @@ intel_edp_init_dpcd(struct intel_dp *intel_dp, struct intel_connector *connector
+ 	/* this function is meant to be called only once */
+ 	drm_WARN_ON(display->drm, intel_dp->dpcd[DP_DPCD_REV] != 0);
+ 
++	/*
++	 * Spec DP2.1 Section 3.5.2.16 page 966.
++	 * Also if sink is asleep, this will wake the sink.
++	 */
++	intel_edp_wake_sink(intel_dp);
++
+ 	if (drm_dp_read_dpcd_caps(&intel_dp->aux, intel_dp->dpcd) != 0)
+ 		return false;
+ 
+-- 
+2.56.0
+
+
+From f490c779be4b7fb218e6f63436ef06b6bc131638 Mon Sep 17 00:00:00 2001
+From: Maxime Bélair <maxime.belair@canonical.com>
+Date: Tue, 1 Sep 2026 16:07:15 +0200
+Subject: [PATCH 9/9] apparmor: convert duplicated dfa transitions to
+ match_char()
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+For historical reasons several matchers duplicate the dfa character
+transition instead of using match_char().
+
+This is because aa_dfa_match_until() and aa_dfa_matchn_until() were
+written on a branch that did not yet have match_char(), and copied code
+from aa_dfa_match(). leftmatch_fb() used the same pattern.
+
+When match_char() added support for diff-encoded states, the change was
+never ported to these copies.
+
+match_char() resolves a diff encoded state by using def[state] and
+retrying the same character, until it reaches a state with a valid
+transition. The copies instead do a simple `state = def[state];` after
+the character is consumed, so on a diff encoded state one byte is dropped
+and the walk continues from the diff parent in the wrong state.
+
+This makes an unnamed px/Px/cx/Cx transition resolve to no profile, and
+exec fails with
+
+  apparmor="DENIED" operation="exec" info="profile transition not found"
+
+Convert the three copies to match_char(). For a dfa with no diff
+encoded state this is a no-op.
+
+This bug is latent until the kernel advertises policy/diff-encode.
+
+Closes: https://gitlab.com/apparmor/apparmor/-/work_items/663
+Fixes: 21f606610502 ("apparmor: improve overlapping domain attachment resolution")
+Fixes: 031dcc8f4e84f ("apparmor: dfa add support for state differential encoding")
+Signed-off-by: Maxime Bélair <maxime.belair@canonical.com>
+Signed-off-by: John Johansen <john.johansen@canonical.com>
+---
+ security/apparmor/match.c | 52 ++++++++++++++-------------------------
+ 1 file changed, 19 insertions(+), 33 deletions(-)
+
+diff --git a/security/apparmor/match.c b/security/apparmor/match.c
+index d43ff34d70..cbef79abe7 100644
+--- a/security/apparmor/match.c
++++ b/security/apparmor/match.c
+@@ -611,7 +611,7 @@ aa_state_t aa_dfa_match_until(struct aa_dfa *dfa, aa_state_t start,
+ 	u32 *next = NEXT_TABLE(dfa);
+ 	u32 *check = CHECK_TABLE(dfa);
+ 	u32 *accept = ACCEPT_TABLE(dfa);
+-	aa_state_t state = start, pos;
++	aa_state_t state = start;
+ 
+ 	if (state == DFA_NOMATCH)
+ 		return DFA_NOMATCH;
+@@ -622,22 +622,18 @@ aa_state_t aa_dfa_match_until(struct aa_dfa *dfa, aa_state_t start,
+ 		u8 *equiv = EQUIV_TABLE(dfa);
+ 		/* default is direct to next state */
+ 		while (*str) {
+-			pos = base_idx(base[state]) + equiv[(u8) *str++];
+-			if (check[pos] == state)
+-				state = next[pos];
+-			else
+-				state = def[state];
++			u8 c = equiv[(u8) *str++];
++
++			match_char(state, def, base, next, check, c);
+ 			if (accept[state])
+ 				break;
+ 		}
+ 	} else {
+ 		/* default is direct to next state */
+ 		while (*str) {
+-			pos = base_idx(base[state]) + (u8) *str++;
+-			if (check[pos] == state)
+-				state = next[pos];
+-			else
+-				state = def[state];
++			u8 c = (u8) *str++;
++
++			match_char(state, def, base, next, check, c);
+ 			if (accept[state])
+ 				break;
+ 		}
+@@ -672,7 +668,7 @@ aa_state_t aa_dfa_matchn_until(struct aa_dfa *dfa, aa_state_t start,
+ 	u32 *next = NEXT_TABLE(dfa);
+ 	u32 *check = CHECK_TABLE(dfa);
+ 	u32 *accept = ACCEPT_TABLE(dfa);
+-	aa_state_t state = start, pos;
++	aa_state_t state = start;
+ 
+ 	*retpos = NULL;
+ 	if (state == DFA_NOMATCH)
+@@ -684,22 +680,18 @@ aa_state_t aa_dfa_matchn_until(struct aa_dfa *dfa, aa_state_t start,
+ 		u8 *equiv = EQUIV_TABLE(dfa);
+ 		/* default is direct to next state */
+ 		for (; n; n--) {
+-			pos = base_idx(base[state]) + equiv[(u8) *str++];
+-			if (check[pos] == state)
+-				state = next[pos];
+-			else
+-				state = def[state];
++			u8 c = equiv[(u8) *str++];
++
++			match_char(state, def, base, next, check, c);
+ 			if (accept[state])
+ 				break;
+ 		}
+ 	} else {
+ 		/* default is direct to next state */
+ 		for (; n; n--) {
+-			pos = base_idx(base[state]) + (u8) *str++;
+-			if (check[pos] == state)
+-				state = next[pos];
+-			else
+-				state = def[state];
++			u8 c = (u8) *str++;
++
++			match_char(state, def, base, next, check, c);
+ 			if (accept[state])
+ 				break;
+ 		}
+@@ -748,7 +740,7 @@ static aa_state_t leftmatch_fb(struct aa_dfa *dfa, aa_state_t start,
+ 	u32 *base = BASE_TABLE(dfa);
+ 	u32 *next = NEXT_TABLE(dfa);
+ 	u32 *check = CHECK_TABLE(dfa);
+-	aa_state_t state = start, pos;
++	aa_state_t state = start;
+ 
+ 	AA_BUG(!dfa);
+ 	AA_BUG(!str);
+@@ -766,13 +758,10 @@ static aa_state_t leftmatch_fb(struct aa_dfa *dfa, aa_state_t start,
+ 		/* default is direct to next state */
+ 		while (*str) {
+ 			unsigned int adjust;
++			u8 c = equiv[(u8) *str++];
+ 
+ 			wb->history[wb->pos] = state;
+-			pos = base_idx(base[state]) + equiv[(u8) *str++];
+-			if (check[pos] == state)
+-				state = next[pos];
+-			else
+-				state = def[state];
++			match_char(state, def, base, next, check, c);
+ 			if (is_loop(wb, state, &adjust)) {
+ 				state = aa_dfa_match(dfa, state, str);
+ 				*count -= adjust;
+@@ -785,13 +774,10 @@ static aa_state_t leftmatch_fb(struct aa_dfa *dfa, aa_state_t start,
+ 		/* default is direct to next state */
+ 		while (*str) {
+ 			unsigned int adjust;
++			u8 c = (u8) *str++;
+ 
+ 			wb->history[wb->pos] = state;
+-			pos = base_idx(base[state]) + (u8) *str++;
+-			if (check[pos] == state)
+-				state = next[pos];
+-			else
+-				state = def[state];
++			match_char(state, def, base, next, check, c);
+ 			if (is_loop(wb, state, &adjust)) {
+ 				state = aa_dfa_match(dfa, state, str);
+ 				*count -= adjust;
+-- 
+2.56.0
+
